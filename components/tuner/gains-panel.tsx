@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { useAxisValues, useNtValue, useNtVersion, useTuner } from "@/components/tuner/tuner-context"
 import { CardTabs, Panel } from "@/components/tuner/panel"
 import { CurrentTripField } from "@/components/tuner/safety-checklist"
+import { VoltageSettingsPanel, useLiveTune } from "@/components/tuner/voltage-drive"
 import { GAIN_DEFS, axisReader, formatPosition, positionUnit, profileUnit, yamsTopics, type GainDef, type GainUnit } from "@/lib/yams/topics"
 import { cn } from "@/lib/utils"
 
@@ -14,15 +15,26 @@ const GAIN_GROUPS: { key: GainDef["group"]; label: string }[] = [
   { key: "profile", label: "Motion profile" },
 ]
 
-const TABS = [
-  ["gains", "Gains"],
-  ["limits", "Limits"],
-] as const
+type Tab = "gains" | "limits" | "voltage"
 
 export function GainsPanel() {
   const { nt, mechanismName, status, kind, axis, positional, requiresRangeVerification } = useTuner()
   useNtVersion()
-  const [tab, setTab] = useState<(typeof TABS)[number][0]>("gains")
+  const live = useLiveTune()
+  // While the Live tune card drives with voltage, a Voltage tab holds the drive's settings, and opens when it appears.
+  const voltageTab = live.tab === "voltage"
+  const [chosen, setTab] = useState<Tab>("gains")
+  const [lastVoltageTab, setLastVoltageTab] = useState(voltageTab)
+  if (voltageTab !== lastVoltageTab) {
+    setLastVoltageTab(voltageTab)
+    if (voltageTab) setTab("voltage")
+  }
+  const tab: Tab = chosen === "voltage" && !voltageTab ? "gains" : chosen
+  const tabs: [Tab, string][] = [
+    ["gains", "Gains"],
+    ["limits", "Limits"],
+    ...(voltageTab ? ([["voltage", "Voltage"]] as [Tab, string][]) : []),
+  ]
   const prefix = mechanismName ? yamsTopics(mechanismName).tuningPrefix : ""
   const available = mechanismName ? GAIN_DEFS.filter((g) => nt.isAnnounced(prefix + g.path)) : []
   const reader = mechanismName ? axisReader(nt, mechanismName, axis) : null
@@ -57,8 +69,10 @@ export function GainsPanel() {
       description="Values the robot publishes under /Tuning. Applied when you press Enter or click away; Esc cancels."
       locked={status !== "connected" || !mechanismName ? "Choose a mechanism to edit its gains." : null}
     >
-      <CardTabs label="Gains or limits" tabs={TABS} value={tab} onChange={setTab} />
-      {tab === "gains" ? (
+      <CardTabs label="Gains, limits or voltage" tabs={tabs} value={tab} onChange={setTab} />
+      {tab === "voltage" ? (
+        <VoltageSettingsPanel />
+      ) : tab === "gains" ? (
         gains.length > 0 ? (
           gains
         ) : (
