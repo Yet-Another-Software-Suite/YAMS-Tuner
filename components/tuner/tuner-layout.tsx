@@ -36,7 +36,7 @@ function useStage(): Stage {
 
 /**
  * One step at a time on the left, at most two cards, with the telemetry always on the right. Live tuning is the Live
- * tune card and the Gains card. On a phone held upright everything stacks; on a phone turned sideways (short:) the
+ * tune card and the Settings card. On a phone held upright everything stacks; on a phone turned sideways (short:) the
  * telemetry is pinned on the left instead.
  *
  * Only the telemetry is pinned. The cards scroll with the page, so when a field near the bottom (such as the current

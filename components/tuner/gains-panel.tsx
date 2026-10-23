@@ -15,7 +15,9 @@ const GAIN_GROUPS: { key: GainDef["group"]; label: string }[] = [
   { key: "profile", label: "Motion profile" },
 ]
 
-type Tab = "gains" | "limits" | "voltage"
+type Tab = "gains" | "limits" | "tuner" | "voltage"
+/** Tabs whose values live on the robot. The others only change this tuner. */
+const ROBOT_TABS: Tab[] = ["gains", "limits"]
 
 export function GainsPanel() {
   const { nt, mechanismName, status, kind, axis, positional, requiresRangeVerification } = useTuner()
@@ -33,6 +35,7 @@ export function GainsPanel() {
   const tabs: [Tab, string][] = [
     ["gains", "Gains"],
     ["limits", "Limits"],
+    ["tuner", "Tuner"],
     ...(voltageTab ? ([["voltage", "Voltage"]] as [Tab, string][]) : []),
   ]
   const prefix = mechanismName ? yamsTopics(mechanismName).tuningPrefix : ""
@@ -65,11 +68,23 @@ export function GainsPanel() {
 
   return (
     <Panel
-      title="Gains"
-      description="Values the robot publishes under /Tuning. Applied when you press Enter or click away; Esc cancels."
+      title="Settings"
+      description="Gains and Limits are the robot's own values. Tuner and Voltage only change this tuner. Changes apply when you press Enter or click away; Esc cancels."
       locked={status !== "connected" || !mechanismName ? "Choose a mechanism to edit its gains." : null}
     >
-      <CardTabs label="Gains, limits or voltage" tabs={tabs} value={tab} onChange={setTab} />
+      <CardTabs label="Robot or tuner settings" tabs={tabs} value={tab} onChange={setTab} />
+      <p
+        className={cn(
+          "rounded-sm border-l-2 px-2 py-1 text-xs leading-relaxed",
+          ROBOT_TABS.includes(tab) ? "border-primary text-foreground" : "border-sapphire text-muted-foreground",
+        )}
+      >
+        {ROBOT_TABS.includes(tab)
+          ? "On the robot: sent to it under /Tuning."
+          : tab === "voltage"
+            ? "Only in this tuner: nothing on this tab is sent to the robot, except Set kG to this."
+            : "Only in this tuner: nothing on this tab is sent to the robot."}
+      </p>
       {tab === "voltage" ? (
         <VoltageSettingsPanel />
       ) : tab === "gains" ? (
@@ -78,15 +93,18 @@ export function GainsPanel() {
         ) : (
           <p className="text-sm text-muted-foreground">This mechanism publishes no tunable gains.</p>
         )
-      ) : (
+      ) : tab === "tuner" ? (
         <>
-          {group("current", "Current limits")}
           <GainGroup label="Stator fault">
             <div className="sm:w-1/2">
               <CurrentTripField />
             </div>
           </GainGroup>
           {positional && requiresRangeVerification && <RangeOfMotion />}
+        </>
+      ) : (
+        <>
+          {group("current", "Current limits")}
           {softLimits && <SoftLimits lowerTopic={softLimits.lowerLimitTopic} upperTopic={softLimits.upperLimitTopic} />}
           {group("ramp", "Ramp rate")}
         </>
