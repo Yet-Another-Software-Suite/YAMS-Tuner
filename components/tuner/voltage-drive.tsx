@@ -56,7 +56,7 @@ const DEFAULT_SETTINGS: VoltageSettings = {
 export type LiveTab = "setpoints" | "voltage"
 
 interface LiveTuneApi {
-  /** The Live tune card's tab. On Voltage, the Gains card gets a Voltage tab with these settings. */
+  /** The Live tune card's tab. On Voltage, the Settings card gets a Voltage tab with these settings. */
   tab: LiveTab
   setTab: (tab: LiveTab) => void
   settings: VoltageSettings
@@ -65,7 +65,7 @@ interface LiveTuneApi {
 
 const LiveTuneContext = createContext<LiveTuneApi | null>(null)
 
-/** Shared by the Live tune and Gains cards. Starts over for each mechanism. */
+/** Shared by the Live tune and Settings cards. Starts over for each mechanism. */
 export function LiveTuneProvider({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<LiveTab>("setpoints")
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
@@ -92,7 +92,7 @@ function holdVolts(kind: string, gravity: number, pos: number | undefined) {
  * The Live tune card's Voltage tab. Drives the mechanism with voltage while a button is held, like finding the range of
  * motion but with nothing to mark. It stops at the ends of the verified range (or the soft limits). During Live Tuning,
  * letting go hands back to the closed loop, which holds where it stopped. Otherwise the motor gets 0 V (or the gravity
- * hold voltage) between presses. The settings are in the Gains card's Voltage tab.
+ * hold voltage) between presses. The settings are in the Settings card's Voltage tab.
  */
 export function VoltageDrive() {
   const { nt, mechanismName, axis, kind, session, starting, startLiveTuning, stop, verified, positional, tuningUnlocked } =
@@ -159,8 +159,10 @@ export function VoltageDrive() {
       nt.set(t.tuning.voltageEnabled, false)
     } else if (sessionRef.current === "jog") {
       // Stay in voltage mode: the closed loop may not be tuned yet. 0 V, or the gravity hold voltage.
-      nt.set(t.tuning.voltageSetpoint, holdAt(pos))
+      const hold = holdAt(pos)
+      nt.set(t.tuning.voltageSetpoint, hold)
       nt.set(t.tuning.voltageEnabled, true)
+      setApplied(hold)
     }
     heldVelocity.current = null
   }, [nt, mechanismName, axis, flywheel, holdAt])
@@ -381,12 +383,12 @@ export function VoltageDrive() {
       )}
       {note && <Notice>{note}</Notice>}
       {error && <Notice tone="danger">{error}</Notice>}
-      <p className="text-xs text-muted-foreground">Change the voltage and how it ramps in the Gains card&apos;s Voltage tab. Space stops everything.</p>
+      <p className="text-xs text-muted-foreground">Change the voltage and how it ramps in the Settings card&apos;s Voltage tab. Space stops everything.</p>
     </>
   )
 }
 
-/** The Gains card's Voltage tab, shown while the Live tune card is on its Voltage tab: the drive's settings. */
+/** The Settings card's Voltage tab, shown while the Live tune card is on its Voltage tab: the drive's settings. */
 export function VoltageSettingsPanel() {
   const { nt, mechanismName, kind } = useTuner()
   const { settings, update } = useLiveTune()
@@ -549,6 +551,9 @@ export function VoltageSettingsPanel() {
                 </Button>
               </>
             )}
+            <Button variant="outline" size="sm" disabled={gravityVolts === 0} onClick={() => update({ gravityVolts: 0 })}>
+              Set to 0 V
+            </Button>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
             {`${kind === "arm" ? "Holds the arm level, like kG, scaled by the cosine of the angle (0° is level)." : "Holds the elevator up, like kG."} Drives add to it, and with voltage only it is sent between presses. Starts at 0 V; up to ${MAX_GRAVITY_VOLTS} V.`}
