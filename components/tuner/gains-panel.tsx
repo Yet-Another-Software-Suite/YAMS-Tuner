@@ -95,15 +95,15 @@ function GainGroup({ label, children }: { label: string; children: ReactNode }) 
  * it, and setpoints are limited to it.
  */
 function RangeOfMotion() {
-  const { verified, setVerifiedBound, axis, session } = useTuner()
+  const { verified, overrideVerifiedBound, foundRange: start, axis, session } = useTuner()
   const { position } = useAxisValues()
   const unit = positionUnit(axis)
-  // What the range step found, so a change can be undone.
-  const [start] = useState(verified)
   const check = (side: "lower" | "upper", v: number): string | null => {
     const other = side === "lower" ? verified.upper : verified.lower
     if (other !== null && (side === "lower" ? v >= other : v <= other)) {
-      return `The lower end must be below the upper end (${formatPosition(other, axis)}).`
+      return side === "lower"
+        ? `The lower end must be below the upper end (${formatPosition(other, axis)}).`
+        : `The upper end must be above the lower end (${formatPosition(other, axis)}).`
     }
     // Live Tuning stops the moment the mechanism is outside the range, so it can't be moved past where it is now.
     if (session !== null && position !== undefined && (side === "lower" ? position < v : position > v)) {
@@ -124,13 +124,18 @@ function RangeOfMotion() {
             value={verified[side]}
             was={start[side]}
             check={(v) => check(side, v)}
-            onCommit={(v) => setVerifiedBound(side, v)}
+            warning={
+              start[side] !== null && verified[side] !== null && (side === "lower" ? verified[side] < start[side] : verified[side] > start[side])
+                ? `Warning: ${side === "lower" ? "below" : "above"} the verified ${side} end (${formatPosition(start[side] as number, axis)}).`
+                : null
+            }
+            onCommit={(v) => overrideVerifiedBound(side, v)}
           />
         ))}
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">
-        Live Tuning stops if the mechanism leaves this range, and setpoints are limited to it. Widening it past what you
-        verified can drive the mechanism into a hard stop.
+        Live Tuning stops if the mechanism leaves this range, and setpoints are limited to it. It can go past what you
+        verified, but that can drive the mechanism into a hard stop.
       </p>
     </GainGroup>
   )
@@ -144,6 +149,7 @@ function RangeInput({
   value,
   was,
   check,
+  warning,
   onCommit,
 }: {
   id: string
@@ -153,6 +159,8 @@ function RangeInput({
   value: number | null
   was: number | null
   check: (v: number) => string | null
+  /** Shown under the field while the value is past what was verified. */
+  warning: string | null
   onCommit: (v: number) => void
 }) {
   const [draft, setDraft] = useState<string | null>(null)
@@ -213,6 +221,7 @@ function RangeInput({
           {error}
         </p>
       )}
+      {warning && !error && <p className="text-xs leading-snug text-hazard">{warning}</p>}
       {was !== null && value !== was && (
         <button
           type="button"
