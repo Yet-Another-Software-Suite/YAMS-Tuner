@@ -705,7 +705,7 @@ export function VerificationBody({ skipControl }: { skipControl: ReactNode }) {
     ((softLower !== undefined && lowerValue < softLower) || (softUpper !== undefined && upperValue > softUpper))
 
   const holdClass =
-    "flex min-h-14 touch-none select-none items-center justify-center gap-2 rounded-md border border-border bg-background px-3 text-center font-medium disabled:opacity-50 data-[active=true]:border-foreground data-[active=true]:bg-hazard data-[active=true]:text-hazard-foreground"
+    "flex min-h-14 touch-none select-none items-center justify-center gap-2 rounded-md border border-border bg-background px-3 text-center font-medium enabled:hover:border-foreground disabled:opacity-50 data-[active=true]:border-foreground data-[active=true]:bg-hazard data-[active=true]:text-hazard-foreground"
 
   // Each part of the page, so the order can change while verifying: on a phone the drive buttons then sit right under
   // the gauge, with the settings and their help below.
