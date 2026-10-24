@@ -20,6 +20,11 @@ export function significantDigits(text: string) {
   return unsigned.includes(".") ? digits.length : digits.replace(/0+$/, "").length
 }
 
+/** A decimal comma, as the keypad types it in much of the world, as a decimal point. */
+export function normalizeDecimal(text: string) {
+  return text.replace(",", ".")
+}
+
 /** Whether the text fits the format so far: a number, or the start of one ("", "-", "1."), within its limits. */
 export function fitsFormat(text: string, f: NumberFormat) {
   if (!(f.integer ? /^-?\d*$/ : /^-?\d*\.?\d*$/).test(text)) return false
@@ -43,6 +48,7 @@ export function parseFormatted(text: string, f: NumberFormat): number | null {
  * can be shortened.
  */
 export function nextText(previous: string, typed: string, f: NumberFormat) {
+  typed = normalizeDecimal(typed)
   if (fitsFormat(typed, f)) return typed
   return typed.length < previous.length ? typed : previous
 }

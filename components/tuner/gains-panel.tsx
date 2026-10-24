@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type ReactNode } from "react"
+import { useRef, useState, type ReactNode } from "react"
 import { Input } from "@/components/ui/input"
 import { useAxisValues, useNtValue, useNtVersion, useTuner } from "@/components/tuner/tuner-context"
 import { CardTabPanel, CardTabs, Panel } from "@/components/tuner/panel"
@@ -8,6 +8,7 @@ import { CurrentTripField } from "@/components/tuner/safety-checklist"
 import { useValueHistory } from "@/components/tuner/value-history"
 import { VoltageSettingsPanel, useLiveTune } from "@/components/tuner/voltage-drive"
 import { WheelPicker } from "@/components/tuner/wheel-picker"
+import { SignToggle, flipSign } from "@/components/tuner/sign-toggle"
 import { Button } from "@/components/ui/button"
 import { GAIN_DEFS, axisReader, formatPosition, positionUnit, profileUnit, wheelLabels, yamsTopics, type GainDef, type GainUnit } from "@/lib/yams/topics"
 import { cn } from "@/lib/utils"
@@ -263,9 +264,10 @@ function RangeInput({
     onCommit(v)
   })
   const shown = draft ?? (value === null ? "" : value.toFixed(digits))
-  const apply = (): boolean => {
-    if (draft === null) return true
-    const v = parseFormatted(draft, ANY_NUMBER)
+  const input = useRef<HTMLInputElement>(null)
+  const apply = (text = draft): boolean => {
+    if (text === null) return true
+    const v = parseFormatted(text, ANY_NUMBER)
     if (v === null) {
       setError("Enter a number.")
       return false
@@ -286,7 +288,9 @@ function RangeInput({
         <span>{label}</span>
         <span className="text-muted-foreground">{unit}</span>
       </label>
+      <div className="flex gap-1">
       <Input
+        ref={input}
         id={id}
         type="text"
         inputMode="decimal"
@@ -315,6 +319,18 @@ function RangeInput({
           if (!apply()) setDraft(null)
         }}
       />
+      <SignToggle
+        label={`the ${label.toLowerCase()}`}
+        input={input}
+        onFlip={(editing) => {
+          const next = flipSign(shown)
+          if (editing) {
+            setDraft(next)
+            setError(null)
+          } else if (!apply(next)) setDraft(null)
+        }}
+      />
+      </div>
       {error && (
         <p id={`${id}-error`} className="text-xs leading-snug text-destructive-text">
           {error}
@@ -404,9 +420,10 @@ function GainInput({
   const shown = draft ?? (displayValue !== null ? fmt(displayValue) : "")
   const hint = unit?.label ?? def.hint
   const converted = unit && unit.label !== unit.wireLabel
-  const apply = (): boolean => {
-    if (draft === null) return true
-    const v = parseFormatted(draft, format)
+  const input = useRef<HTMLInputElement>(null)
+  const apply = (text = draft): boolean => {
+    if (text === null) return true
+    const v = parseFormatted(text, format)
     if (v === null || (def.nonNegative && v < 0) || (valid && !valid(v))) {
       setInvalid(true)
       return false
@@ -425,7 +442,9 @@ function GainInput({
         <span>{def.label}</span>
         {hint && <span className="text-muted-foreground">{hint}</span>}
       </label>
+      <div className="flex gap-1">
       <Input
+        ref={input}
         id={id}
         type="text"
         inputMode={inputModeFor(format)}
@@ -456,6 +475,20 @@ function GainInput({
           }
         }}
       />
+      {format.negative && (
+        <SignToggle
+          label={def.key.startsWith("soft") ? `the ${def.label.toLowerCase()} soft limit` : def.label}
+          input={input}
+          onFlip={(editing) => {
+            const next = flipSign(shown)
+            if (editing) {
+              setDraft(next)
+              setInvalid(false)
+            } else if (!apply(next)) setInvalid(false)
+          }}
+        />
+      )}
+      </div>
       {/* Read with the field; shown only when an entry is refused. */}
       <p id={`${id}-format`} className={cn("text-xs leading-snug text-destructive-text", !invalid && "sr-only")}>
         {describeFormat(format)}
