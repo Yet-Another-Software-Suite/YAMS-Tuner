@@ -11,6 +11,10 @@ import { WheelPicker } from "@/components/tuner/wheel-picker"
 import { Button } from "@/components/ui/button"
 import { GAIN_DEFS, axisReader, formatPosition, positionUnit, profileUnit, wheelLabels, yamsTopics, type GainDef, type GainUnit } from "@/lib/yams/topics"
 import { cn } from "@/lib/utils"
+import { describeFormat, inputModeFor, nextText, parseFormatted, type NumberFormat } from "@/lib/number-format"
+
+/** Positions: any number, negative too. */
+const ANY_NUMBER: NumberFormat = { negative: true }
 
 const GAIN_GROUPS: { key: GainDef["group"]; label: string }[] = [
   { key: "feedback", label: "Feedback" },
@@ -261,8 +265,8 @@ function RangeInput({
   const shown = draft ?? (value === null ? "" : value.toFixed(digits))
   const apply = (): boolean => {
     if (draft === null) return true
-    const v = Number(draft)
-    if (draft.trim() === "" || !Number.isFinite(v)) {
+    const v = parseFormatted(draft, ANY_NUMBER)
+    if (v === null) {
       setError("Enter a number.")
       return false
     }
@@ -284,15 +288,17 @@ function RangeInput({
       </label>
       <Input
         id={id}
-        type="number"
-        step="any"
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        spellCheck={false}
         aria-invalid={error !== null}
         aria-describedby={error ? `${id}-error` : undefined}
         placeholder="Not set"
         className={cn("h-8 font-mono", draft !== null && "border-hazard")}
         value={shown}
         onChange={(e) => {
-          setDraft(e.target.value)
+          setDraft(nextText(shown, e.target.value, ANY_NUMBER))
           setError(null)
         }}
         onKeyDown={(e) => {
@@ -390,6 +396,8 @@ function GainInput({
   const [invalid, setInvalid] = useState(false)
   const history = useValueHistory(topic, value, (v) => nt.set(topic, v))
   const id = `gain-${def.key}`
+  // Only numbers can be typed: a key that doesn't fit the format does nothing. Soft limits take any number.
+  const format: NumberFormat = def.format ?? { negative: !def.nonNegative }
   const toDisplay = (w: number) => (unit ? unit.fromWire(w) : w)
   const fmt = (n: number) => String(Number(n.toPrecision(6)))
   const displayValue = typeof value === "number" ? toDisplay(value) : null
@@ -398,8 +406,8 @@ function GainInput({
   const converted = unit && unit.label !== unit.wireLabel
   const apply = (): boolean => {
     if (draft === null) return true
-    const v = Number(draft)
-    if (draft.trim() === "" || !Number.isFinite(v) || (def.nonNegative && v < 0) || (valid && !valid(v))) {
+    const v = parseFormatted(draft, format)
+    if (v === null || (def.nonNegative && v < 0) || (valid && !valid(v))) {
       setInvalid(true)
       return false
     }
@@ -419,14 +427,16 @@ function GainInput({
       </label>
       <Input
         id={id}
-        type="number"
-        step="any"
+        type="text"
+        inputMode={inputModeFor(format)}
+        autoComplete="off"
+        spellCheck={false}
         aria-invalid={invalid}
-        aria-describedby={converted ? `${id}-wire` : undefined}
+        aria-describedby={cn(`${id}-format`, converted && `${id}-wire`)}
         className={cn("h-8 font-mono", draft !== null && "border-hazard")}
         value={shown}
         onChange={(e) => {
-          setDraft(e.target.value)
+          setDraft(nextText(shown, e.target.value, format))
           setInvalid(false)
         }}
         onKeyDown={(e) => {
@@ -446,6 +456,10 @@ function GainInput({
           }
         }}
       />
+      {/* Read with the field; shown only when an entry is refused. */}
+      <p id={`${id}-format`} className={cn("text-xs leading-snug text-destructive-text", !invalid && "sr-only")}>
+        {describeFormat(format)}
+      </p>
       {history.last !== null && (
         <WasButton
           label={def.label}
@@ -464,7 +478,7 @@ function GainInput({
           label={def.label}
           value={value}
           wireLabel={unit.wireLabel}
-          nonNegative={def.nonNegative}
+          format={format}
           onCommit={(v) => {
             nt.set(topic, v)
             setDraft(null)
@@ -481,14 +495,14 @@ function WireValueEditor({
   label,
   value,
   wireLabel,
-  nonNegative,
+  format,
   onCommit,
 }: {
   id: string
   label: string
   value: number
   wireLabel: string
-  nonNegative?: boolean
+  format: NumberFormat
   onCommit: (v: number) => void
 }) {
   const [draft, setDraft] = useState<string | null>(null)
@@ -497,8 +511,8 @@ function WireValueEditor({
 
   const commit = () => {
     if (draft === null) return
-    const v = Number(draft)
-    if (draft.trim() === "" || !Number.isFinite(v) || (nonNegative && v < 0)) {
+    const v = parseFormatted(draft, format)
+    if (v === null) {
       setInvalid(true)
       return
     }
@@ -512,7 +526,7 @@ function WireValueEditor({
       <button
         type="button"
         id={id}
-        onClick={() => setDraft(String(Number(value.toPrecision(6))))}
+        onClick={() => setDraft(String(Number(value.toPrecision(format.significant ?? 6))))}
         title={`Edit ${label} directly in ${wireLabel}`}
         className="self-start rounded-sm font-mono text-xs text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
       >
@@ -526,14 +540,16 @@ function WireValueEditor({
       <span aria-hidden>=</span>
       <Input
         autoFocus
-        type="number"
-        step="any"
-        aria-label={`${label} in ${wireLabel}`}
+        type="text"
+        inputMode={inputModeFor(format)}
+        autoComplete="off"
+        spellCheck={false}
+        aria-label={`${label} in ${wireLabel}. ${describeFormat(format)}`}
         aria-invalid={invalid}
         className="h-8 w-24 px-1.5 font-mono text-base border-hazard sm:h-6 sm:text-xs"
         value={draft}
         onChange={(e) => {
-          setDraft(e.target.value)
+          setDraft(nextText(draft, e.target.value, format))
           setInvalid(false)
         }}
         onKeyDown={(e) => {
