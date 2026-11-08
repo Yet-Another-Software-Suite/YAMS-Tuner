@@ -202,8 +202,11 @@ export class MechanismSim {
     return { velocity: next, distance }
   }
 
-  /** Apply a voltage for one loop. `maxPosition` may be lowered for one step by an obstacle. */
-  step(voltage: number, dt: number, maxPosition = this.maxPosition): void {
+  /**
+   * Apply a voltage for one loop. `maxPosition` may be lowered for one step by an obstacle. `loadTorque`, in N·m at the
+   * mechanism, resists its motion, as a ball does while a flywheel launches it.
+   */
+  step(voltage: number, dt: number, maxPosition = this.maxPosition, loadTorque = 0): void {
     if (this.kind === "elevator") {
       const r = this.drumRadius
       const step = this.stepMotor(voltage, this.velocity / r, this.mass * r * r, this.mass * G * r, dt)
@@ -211,7 +214,7 @@ export class MechanismSim {
       this.position += step.distance * r
     } else {
       const gravity = this.kind === "arm" ? this.mass * G * (this.length / 2) * Math.cos(this.position) : 0
-      const step = this.stepMotor(voltage, this.velocity, this.moi, gravity, dt)
+      const step = this.stepMotor(voltage, this.velocity, this.moi, gravity + loadTorque * Math.sign(this.velocity), dt)
       this.velocity = step.velocity
       this.position += step.distance
     }

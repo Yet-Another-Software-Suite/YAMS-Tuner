@@ -56,7 +56,7 @@ Pick **Demo (no robot)** and press **Start demo**, or open the site with `?demo`
 - a two-motor shooter flywheel;
 - a double flywheel, named as in YAMS's `double_flywheel` example: `LowerFlyWheel` and `UpperFlyWheel`, sharing the `DoubleFlyWheelSubsystem` Live Tuning command. Their physics come from [YAMG](https://github.com/Yet-Another-Software-Suite/yamg)'s simulation: NEO motors with stator and supply current limits, gravity, hard stops and battery sag.
 
-The demo bar under the header stands in for the Driver Station: pick the mode, enable or disable the robot, and reset it. It can also break the robot on purpose, so the safety checks can be tried:
+The demo bar under the header stands in for the Driver Station: pick the mode, enable or disable the robot, and reset it. **Shoot a ball** sends a ball through every flywheel: for a tenth of a second it drags each wheel down hard, so how fast the gains bring the speed back can be tuned. It can also break the robot on purpose, so the safety checks can be tried:
 
 - **Elevator motor wired backwards**: the inversion check sees the elevator move the wrong way.
 - **Arm blocked at 45°**: range verification and Live Tuning run into it.

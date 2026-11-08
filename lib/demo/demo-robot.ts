@@ -11,6 +11,10 @@ const LOOP_S = 0.02
 const DEG = Math.PI / 180
 /** RPM to rad/s. */
 const RPM = (2 * Math.PI) / 60
+/** How long a ball touches a flywheel, in seconds. */
+const BALL_CONTACT_S = 0.1
+/** The share of a flywheel's speed a ball takes, were the motor not to push back. */
+const BALL_SPEED_LOSS = 0.3
 
 type Kind = MechanismSimOptions["kind"]
 
@@ -144,6 +148,8 @@ class Mechanism {
   supply = 0
   temp = 25
   private lastOut = 0
+  /** While a ball is in a flywheel: the torque it loads the wheel with, and for how much longer. */
+  private ball: { torque: number; left: number } | null = null
 
   constructor(def: MechDef) {
     this.def = def
@@ -195,6 +201,12 @@ class Mechanism {
     this.running = false
     this.voltageEnabled = false
     this.voltageSetpoint = 0
+  }
+
+  /** A ball goes through a flywheel. Its load takes BALL_SPEED_LOSS of the wheel's speed over BALL_CONTACT_S. */
+  shootBall() {
+    if (this.def.kind !== "flywheel") return
+    this.ball = { torque: (this.sim.moi * BALL_SPEED_LOSS * Math.abs(this.sim.velocity)) / BALL_CONTACT_S, left: BALL_CONTACT_S }
   }
 
   private applyGains() {
@@ -250,7 +262,10 @@ class Mechanism {
     const sign = this.motorInverted !== backwards ? -1 : 1
     let maxPosition = this.sim.maxPosition
     if (this.def.kind === "arm" && faults.armBlocked && this.sim.position <= 45.5 * DEG) maxPosition = 45 * DEG
-    this.sim.step(out * sign, dt, maxPosition)
+    // The ball drags the wheel down hard, the way it shows on a real shooter's speed and current.
+    const ballTorque = this.ball ? this.ball.torque : 0
+    if (this.ball && (this.ball.left -= dt) <= 1e-9) this.ball = null
+    this.sim.step(out * sign, dt, maxPosition, ballTorque)
     this.volts = this.sim.voltage * sign
     this.stator = (this.sim.current / this.sim.motor.count) * sign
     this.supply = Math.abs(this.sim.supplyCurrent)
@@ -304,6 +319,12 @@ export class DemoRobot {
 
   setFault(key: keyof DemoFaults, value: boolean) {
     this.faults = { ...this.faults, [key]: value }
+    this.changed()
+  }
+
+  /** A ball goes through every flywheel; a double flywheel's two wheels both launch it. */
+  shootBall() {
+    for (const m of this.mechanisms) m.shootBall()
     this.changed()
   }
 

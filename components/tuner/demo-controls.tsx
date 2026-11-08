@@ -1,7 +1,7 @@
 "use client"
 
 import { useSyncExternalStore } from "react"
-import { FlaskConical, Power, RotateCcw } from "lucide-react"
+import { CircleDot, FlaskConical, Power, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { useTuner } from "@/components/tuner/tuner-context"
@@ -14,7 +14,7 @@ const FAULTS: { key: keyof DemoFaults; label: string }[] = [
   { key: "armBlocked", label: "Arm blocked at 45°" },
 ]
 
-/** The demo robot's Driver Station: enable, mode, faults to try, and a reset. Only shown in the demo. */
+/** The demo robot's Driver Station: enable, mode, faults to try, a ball to shoot, and a reset. Only shown in the demo. */
 export function DemoControls() {
   // The SystemCore package has no demo. The check is inline so its build drops the demo entirely.
   if (process.env.NEXT_PUBLIC_SYSTEMCORE === "1") return null
@@ -75,10 +75,16 @@ function DemoBar({ robot }: { robot: DemoRobot }) {
           ))}
         </div>
 
-        <Button type="button" size="sm" variant="outline" className="ms-auto" onClick={() => robot.reset()}>
-          <RotateCcw data-icon="inline-start" />
-          Reset robot
-        </Button>
+        <div className="ms-auto flex items-center gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => robot.shootBall()}>
+            <CircleDot data-icon="inline-start" />
+            Shoot a ball
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => robot.reset()}>
+            <RotateCcw data-icon="inline-start" />
+            Reset robot
+          </Button>
+        </div>
       </div>
     </div>
   )
